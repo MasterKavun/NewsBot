@@ -8,10 +8,8 @@ cursor.execute("""
     CREATE TABLE IF NOT EXISTS news (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT UNIQUE,
-        url TEXT UNIQUE,
-        content TEXT
+        url TEXT UNIQUE       
     )
-
 """)
 
 url = "https://news.liga.net/ua"
@@ -28,8 +26,8 @@ for article in articles:
 
     if url.startswith("https://news.liga.net/"):
         try:
-            cursor.execute("INSERT INTO news (title, url, content) VALUES (?,?,?)",
-                        (title, url, "Текст статті"))
+            cursor.execute("INSERT INTO news (title, url) VALUES (?,?)",
+                        (title, url))
             connection.commit()
         except sqlite3.IntegrityError:
             print(f"Новина вже є в базі: {title}")
