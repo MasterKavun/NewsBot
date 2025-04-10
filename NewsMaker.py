@@ -3,6 +3,7 @@ import sqlite3
 import httpx
 import asyncio
 import json
+import re
 
 API_URL = "https://api.mistral.ai/v1/agents/completions"
 API_KEY = "TzyjIxcObFjasRHigpqZyMnwStyIRYpB"
@@ -47,25 +48,15 @@ for article in articles:
     url = article["href"]
 
     browser.open(url)
-    news_page = browser.get_current_page()
-
-    img_tags = news_page.find_all("img")
-    print(f"Знайдено {len(img_tags)} зображень на сторінці {url}")  # Логування кількості зображень
-    for img_tag in img_tags:
-        print(f"Тег <img> - src: {img_tag.get('src')}, srcset: {img_tag.get('srcset')}")  # Логування атрибутів
-
-    # Якщо зображення знайдено, вибираємо перше з них
-    image_url = None
-    for img_tag in img_tags:
-        if img_tag.get("src"):
-            image_url = img_tag["src"]
-            break  # Вибираємо перше зображення, яке знайшли
+    article_page = browser.get_current_page()
+    
+    # Знаходимо першу основну картинку з класом "article-body__figure"
+    figure = article_page.select_one("figure.article-body__figure img")
+    image_url = figure["src"] if figure and figure.get("src") else None
 
     if image_url:
-        print(f"Вибране зображення: {image_url}")  # Логування вибраного зображення
-    else:
-        print(f"Зображення не знайдено на сторінці {url}")
-
+        image_url = re.sub(r"w=\d+", "w=1280", image_url)
+    
     if url.startswith("https://news.liga.net/"):
         try:
             cursor.execute("INSERT INTO news (title, url, image_url) VALUES (?,?,?)",
