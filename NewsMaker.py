@@ -36,6 +36,13 @@ cursor.execute("""
   )
 """)
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS posted_news (
+        news_id INTEGER PRIMARY KEY,
+        FOREIGN KEY(news_id) REFERENCES news(id)    
+    )
+""")
+
 # Парсинг сайту
 url = "https://news.liga.net/ua"
 browser = mechanicalsoup.StatefulBrowser()
