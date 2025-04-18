@@ -46,7 +46,7 @@ async def post_news_to_channel():
     if news:
         news_id, title, image_url, processed_text = news
         try:
-            if len(processed_text) > 1024:
+            if not image_url or len(processed_text) > 1024:
                 await bot.send_message(
                     chat_id="@my_test_cgannel",
                     text=f"<b>{title}</b>\n\n{processed_text}"
