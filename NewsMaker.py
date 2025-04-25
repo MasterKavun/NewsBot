@@ -43,6 +43,15 @@ cursor.execute("""
     )
 """)
 
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS failed_news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        news_id INTEGER UNIQUE,
+        error_message TEXT,
+        failed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+
 # Парсинг сайту
 url = "https://news.liga.net/ua"
 browser = mechanicalsoup.StatefulBrowser()

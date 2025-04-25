@@ -43,6 +43,7 @@ async def post_news_to_channel():
         JOIN news_texts nt ON n.id = nt.news_id
         WHERE nt.processed_text != ''
         AND n.id NOT IN (SELECT news_id FROM posted_news)
+        AND n.id NOT IN (SELECT news_id FROM failed_news)
         ORDER BY n.id ASC
         LIMIT 1
     """)
@@ -74,7 +75,8 @@ async def post_news_to_channel():
             connection.commit()
         except Exception as e:
             logging.error(f"Не вдалося надіслати новину ID {news_id}: {e}")
-
+            cursor.execute("INSERT OR IGNORE INTO failed_news (news_id, error_message) VALUES (?, ?)", (news_id, str(e)))
+            connection.commit()
 # Розклад
 async def scheduled_posting():
     while True:
