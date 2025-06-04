@@ -1,0 +1,19 @@
+# Ігнорувати файли сесій Telegram (Telethon, Pyrogram)
+*.session
+*.session*
+
+# Python-кеш
+__pycache__/
+*.py[cod]
+
+# Системні файли
+.DS_Store
+Thumbs.db
+
+# Файли середовища
+.env
+.venv/
+venv/
+
+# Логи
+*.log
