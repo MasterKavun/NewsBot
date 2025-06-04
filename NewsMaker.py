@@ -4,10 +4,7 @@ import httpx
 import asyncio
 import json
 import re
-
-API_URL = "https://api.mistral.ai/v1/agents/completions"
-API_KEY = "TzyjIxcObFjasRHigpqZyMnwStyIRYpB"
-AGENT_ID = "ag:859ee711:20250408:untitled-agent:79fcec57"
+from config import API_KEY, AGENT_ID, API_URL
 
 headers = {
    "Authorization": f"Bearer {API_KEY}",
@@ -52,6 +49,25 @@ cursor.execute("""
     )
 """)
 
+def get_all_image_urls(article_page):
+    image_urls = []
+
+    # Основне зображення
+    main_img_tag = article_page.select_one("figure.article-body__figure img")
+    if main_img_tag and main_img_tag.get("src"):
+        src = main_img_tag["src"]
+        high_res = re.sub(r"w=\\d+", "w=1280", src)
+        image_urls.append(high_res)
+
+    # Додаткові зображення — <a href=...>
+    extra_figures = article_page.select("figure.article__figure a")
+    for a_tag in extra_figures:
+        href = a_tag.get("href")
+        if href and href.startswith("http"):
+            image_urls.append(href) 
+
+    return image_urls
+
 # Парсинг сайту
 url = "https://news.liga.net/ua"
 browser = mechanicalsoup.StatefulBrowser()
@@ -65,25 +81,21 @@ for article in articles:
 
     browser.open(url)
     article_page = browser.get_current_page()
-    
-    # Знаходимо першу основну картинку з класом "article-body__figure"
-    figure = article_page.select_one("figure.article-body__figure img")
-    image_url = figure["src"] if figure and figure.get("src") else None
 
-    if image_url:
-        image_url = re.sub(r"w=\d+", "w=1280", image_url)
-    
+    # Збір усіх зображень через функцію
+    image_urls = get_all_image_urls(article_page)
+    image_urls_json = json.dumps(image_urls)
+
     if url.startswith("https://news.liga.net/"):
         try:
             cursor.execute("INSERT INTO news (title, url, image_url) VALUES (?,?,?)",
-                        (title, url, image_url))
+                        (title, url, image_urls_json))
             connection.commit()
         except sqlite3.IntegrityError:
             print(f"Новина вже є в базі: {title}")
 
 connection.commit()
 print("✅ Базу оновлено")
-
 
 cursor.execute("""
     SELECT id, url FROM news
@@ -136,7 +148,7 @@ async def process_news(session, news_id, full_text):
             timeout=60
         )
         response.raise_for_status()
-        
+
         try:
             result = response.json()
             processed_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -162,7 +174,6 @@ async def main():
         for news_id, full_text in news_to_process:
             await process_news(session, news_id, full_text)
             await asyncio.sleep(2)
-        
 
 asyncio.run(main())
 connection.close()

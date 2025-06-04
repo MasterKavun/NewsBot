@@ -1,11 +1,13 @@
 import logging
 import asyncio
 import re
+import json
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import CommandStart
 from aiogram.types import Message
+from aiogram.types import InputMediaPhoto
 import sqlite3
 from config import BOT_TOKEN, ADMIN_ID
 
@@ -51,31 +53,56 @@ async def post_news_to_channel():
     news = cursor.fetchone()
 
     if news:
-        news_id, title, image_url, processed_text = news
+        news_id, title, image_url_json, processed_text = news
+
         try:
-            # Підрахунок реальної довжини тексту (без HTML)
             clean_title = strip_html_tags(title)
             clean_text = strip_html_tags(processed_text)
-            total_length = len(clean_title) + len(clean_text) + 2  # за \n\n
+            total_length = len(clean_title) + len(clean_text) + 2
 
-            if not image_url or total_length > 1024:
+            # Парсимо список зображень
+            image_urls = []
+            if image_url_json:
+                try:
+                    parsed = json.loads(image_url_json)
+                    if isinstance(parsed, list):
+                        image_urls = parsed[:10]
+                        image_urls = [url for url in image_urls if url.startswith("http")]  # максимум 10 зображень
+                except json.JSONDecodeError:
+                    pass
+
+            # Якщо є зображення і текст влізає
+            if image_urls and total_length <= 1024:
+                media = []
+
+                for i, url in enumerate(image_urls):
+                    if i == len(image_urls) - 1:
+                        # caption тільки для останнього фото
+                        media.append(InputMediaPhoto(media=url, caption=f"<b>{title}</b>\n\n{processed_text}", parse_mode="HTML"))
+                    else:
+                        media.append(InputMediaPhoto(media=url))
+
+                await bot.send_media_group(
+                    chat_id="@my_test_cgannel",
+                    media=media
+                )
+            else:
+                # Якщо немає зображень або текст завеликий — просто текст
                 await bot.send_message(
                     chat_id="@my_test_cgannel",
                     text=f"<b>{title}</b>\n\n{processed_text}"
-                )
-            else:
-                await bot.send_photo(
-                    chat_id="@my_test_cgannel",
-                    photo=image_url,
-                    caption=f"<b>{title}</b>\n\n{processed_text}"
                 )
 
             # Позначаємо як опубліковану
             cursor.execute("INSERT INTO posted_news (news_id) VALUES (?)", (news_id,))
             connection.commit()
+
         except Exception as e:
             logging.error(f"Не вдалося надіслати новину ID {news_id}: {e}")
-            cursor.execute("INSERT OR IGNORE INTO failed_news (news_id, error_message) VALUES (?, ?)", (news_id, str(e)))
+            cursor.execute(
+                "INSERT OR IGNORE INTO failed_news (news_id, error_message) VALUES (?, ?)",
+                (news_id, str(e))
+            )
             connection.commit()
 # Розклад
 async def scheduled_posting():
