@@ -11,6 +11,7 @@ from aiogram.types import InputMediaPhoto
 import sqlite3
 from config import BOT_TOKEN, ADMIN_ID
 
+
 # Логування
 logging.basicConfig(level=logging.INFO)
 
@@ -61,15 +62,21 @@ async def post_news_to_channel():
             total_length = len(clean_title) + len(clean_text) + 2
 
             # Парсимо список зображень
-            image_urls = []
             if image_url_json:
                 try:
                     parsed = json.loads(image_url_json)
                     if isinstance(parsed, list):
-                        image_urls = parsed[:10]
-                        image_urls = [url for url in image_urls if url.startswith("http")]  # максимум 10 зображень
+                        # Фільтруємо валідні URL
+                        filtered = [url for url in parsed if url.startswith("http")]
+
+                        # Якщо є додаткові зображення — прибираємо головне (перше)
+                        if len(filtered) > 1:
+                            image_urls = filtered[1:11]  # максимум 10, без першого
+                        else:
+                            image_urls = filtered
                 except json.JSONDecodeError:
                     pass
+
 
             # Якщо є зображення і текст влізає
             if image_urls and total_length <= 1024:
@@ -108,7 +115,7 @@ async def post_news_to_channel():
 async def scheduled_posting():
     while True:
         await post_news_to_channel()
-        await asyncio.sleep(300)  # 5 хвилин
+        await asyncio.sleep(60)  # 5 хвилин
 
 # Запуск
 async def main():

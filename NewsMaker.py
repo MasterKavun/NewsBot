@@ -4,6 +4,7 @@ import httpx
 import asyncio
 import json
 import re
+import urllib.parse
 from config import API_KEY, AGENT_ID, API_URL
 
 headers = {
@@ -49,6 +50,14 @@ cursor.execute("""
     )
 """)
 
+def fix_image_url(url):
+    if url.startswith("//"):
+        return "https:" + url
+    elif not url.startswith("http"):
+        return "https://" + url
+    return url
+
+
 def get_all_image_urls(article_page):
     image_urls = []
 
@@ -56,17 +65,32 @@ def get_all_image_urls(article_page):
     main_img_tag = article_page.select_one("figure.article-body__figure img")
     if main_img_tag and main_img_tag.get("src"):
         src = main_img_tag["src"]
-        high_res = re.sub(r"w=\\d+", "w=1280", src)
-        image_urls.append(high_res)
+        original_url = extract_direct_image_url(src)
+        if original_url:
+            image_urls.append(fix_image_url(original_url))
 
-    # Додаткові зображення — <a href=...>
+    # Додаткові зображення
     extra_figures = article_page.select("figure.article__figure a")
     for a_tag in extra_figures:
         href = a_tag.get("href")
-        if href and href.startswith("http"):
-            image_urls.append(href) 
+        if href:
+            original_url = extract_direct_image_url(href)
+            if original_url:
+                image_urls.append(fix_image_url(original_url))
 
     return image_urls
+
+
+def extract_direct_image_url(url):
+    # Якщо це wsrv.nl — витягуємо параметр `url=...`
+    if "wsrv.nl" in url:
+        parsed = urllib.parse.urlparse(url)
+        query_params = urllib.parse.parse_qs(parsed.query)
+        if "url" in query_params:
+            return query_params["url"][0]  # декодується автоматично
+    elif "storage.liga.net" in url:
+        return url
+    return None
 
 # Парсинг сайту
 url = "https://news.liga.net/ua"
